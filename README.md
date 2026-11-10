@@ -39,7 +39,7 @@ Average FPS in a stable scene changes almost not at all — the effect is in **f
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 The `config/pearl-optimizer.json` file is created automatically on first launch. A missing field = default, old configs are read without edits.
 
@@ -80,7 +80,7 @@ The full list of properties — `pearloptimizer.buffers`, `.capacity`, `.pipelin
 
 ---
 
-## 🧪 Diagnostics
+## Diagnostics
 
 The mod has detailed diagnostics that are disabled by default. If problems occur, first of all enable the detailed report:
 
@@ -92,3 +92,6 @@ It prints HIT/MISS lines, barrier census, store health report, and `PURGE REPORT
 
 ---
 
+## Plans
+1. Since I'm not great at naming mods or adding logos, I'll be completely renaming it within a week.
+2. If I get motivated, I'll upload the mod to Modrinth/Curseforge. The deadline is within two weeks, or when Minecraft 26.4 comes out and I'll port it to that version.
