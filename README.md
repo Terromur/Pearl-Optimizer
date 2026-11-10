@@ -17,7 +17,8 @@ A client-side Minecraft mod that reduces stutters and speeds up world loading. F
 | First world enter | 1864 ms | **651 ms** (−65 %) |
 | Shader compilation (warm start) | 1103 ms | **35 ms** |
 | Vulkan object reuse | — | **94 %** (created 170 / reused 2570) |
-| Pipeline cache | no disk | **267 KB** between launches |
+| Pipeline cache | no disk | ~**267 KB** between launches |
+| Shader cache | no disk | ~**3.9-4.9 MB** between launches |
 
 Average FPS in a stable scene changes almost not at all — the effect is in **fewer stutters when entering a world, pressing F3+T, and changing dimensions**, as well as in smoother frametimes (higher 1 % low). The main FPS on a weak GPU comes from Sodium — this mod **does not replace it, but complements it**. Optionally, you can change FIFO to MAILBOX, which can theoretically increase FPS, reduce latency even further, and even improve mouse and keyboard responsiveness.
 
