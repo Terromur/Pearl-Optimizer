@@ -1,0 +1,75 @@
+plugins {
+        id 'net.fabricmc.fabric-loom' version "${loom_version}"
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+        archivesName = project.archives_base_name
+}
+
+loom {
+        mods {
+                "pearl-optimizer" {
+                        sourceSet sourceSets.main
+                }
+        }
+}
+
+repositories {
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        mavenCentral()
+}
+
+// Loom injects its repository set (Fabric, Mojang libraries, Maven Central)
+// DURING plugin apply - before this script's own repositories block, so a
+// plain block cannot de-prioritize Maven Central (which 429s the shared
+// sandbox IP; Gradle fails the whole resolution on a 429 instead of falling
+// through). Rewrite every Maven Central URL to the content-identical Aliyun
+// mirror after evaluation, when loom's repos are guaranteed to exist.
+def pearlRewriteCentral = { repo ->
+    if (repo instanceof org.gradle.api.artifacts.repositories.MavenArtifactRepository
+            && repo.url.toString().startsWith('https://repo.maven.apache.org/maven2')) {
+        repo.url = 'https://maven.aliyun.com/repository/central/'
+    }
+}
+project.repositories.all(pearlRewriteCentral)
+project.afterEvaluate {
+    project.repositories.all(pearlRewriteCentral)
+}
+
+dependencies {
+        // To change the versions see the gradle.properties file
+        minecraft "com.mojang:minecraft:${project.minecraft_version}"
+        implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+}
+
+processResources {
+        def modVersion = project.mod_version
+        inputs.property "version", modVersion
+
+        filesMatching("fabric.mod.json") {
+                expand "version": modVersion
+        }
+}
+
+tasks.withType(JavaCompile).configureEach {
+        it.options.release = 25
+}
+
+java {
+        withSourcesJar()
+
+        sourceCompatibility = JavaVersion.VERSION_25
+        targetCompatibility = JavaVersion.VERSION_25
+}
+
+jar {
+        def projectName = project.base.archivesName.get()
+        inputs.property "projectName", projectName
+
+        from("LICENSE") {
+                rename { "${it}_$projectName" }
+        }
+}

@@ -1,0 +1,16 @@
+pluginManagement {
+        repositories {
+                // Aliyun mirrors first: Maven Central rate-limits (429) the shared
+                // sandbox IP, the mirrors are content-identical proxies.
+                maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+                maven { url = 'https://maven.aliyun.com/repository/public' }
+                maven {
+                        name = 'Fabric'
+                        url = 'https://maven.fabricmc.net/'
+                }
+                mavenCentral()
+                gradlePluginPortal()
+        }
+}
+
+rootProject.name = 'pearl-optimizer'

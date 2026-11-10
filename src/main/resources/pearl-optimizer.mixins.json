@@ -1,0 +1,26 @@
+{
+        "required": true,
+        "minVersion": "0.8",
+        "package": "dev.zai.pearloptimizer.mixin",
+        "compatibilityLevel": "JAVA_25",
+        "client": [
+                "CachedIncludeSourceMixin",
+                "DynamicGpuDataStorageMappedMixin",
+                "DynamicGpuDataStorageNonMappedMixin",
+                "GlslCompilerAccessor",
+                "PipelineBuilderMixin",
+                "ShaderManagerMixin",
+                "ShaderOptimizationMixin",
+                "VulkanCommandEncoderBarrierMixin",
+                "VulkanDeviceMixin",
+                "VulkanEncoderBarrierSitesMixin",
+                "VulkanGpuSurfaceBarrierMixin",
+                "VulkanGpuSurfaceMixin",
+                "VulkanGpuTextureBarrierMixin",
+                "VulkanRenderPipelineMixin",
+                "VulkanTransientMemoryBarrierMixin"
+        ],
+        "injectors": {
+                "defaultRequire": 1
+        }
+}

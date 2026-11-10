@@ -1,0 +1,22 @@
+{
+        "schemaVersion": 1,
+        "id": "pearl-optimizer",
+        "icon": "assets/pearl-optimizer/pack.png",
+        "version": "${version}",
+        "name": "Pearl Optimizer",
+        "description": "Optimizes the Vulkan renderer: persistent SPIR-V shader cache, optimized shader compilation, shared pipeline cache with on-disk persistence, pre-sized dynamic buffers, optional present mode override.",
+        "license": "MIT",
+        "environment": "client",
+        "mixins": [
+                {
+                        "config": "pearl-optimizer.mixins.json",
+                        "environment": "client"
+                }
+        ],
+        "depends": {
+                "fabricloader": ">=0.20.1",
+                "minecraft": "26.3",
+                "java": ">=25",
+                "mixinextras": ">=0.2.0"
+        }
+}
