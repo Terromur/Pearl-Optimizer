@@ -229,6 +229,15 @@ public final class ShaderCacheManager {
     private static final AtomicLong PREFETCH_INVALID = new AtomicLong();
     /** Report counter: prefetch entries never examined because the budget guard or a broken session stopped the loop. Printed in the prefetch line; healthy = 0. */
     private static final AtomicLong PREFETCH_TRUNCATED = new AtomicLong();
+    /**
+     * Report counter: optimized prefetch entries skipped because the session's optimized profile is
+     * definitively off (config disabled, or the guard disarmed) - such entries can never be served
+     * (their cache keys embed the optimized profile, which isActive() no longer produces), so warming
+     * them would only fill the RAM budget with un-hittable entries and evict servable vanilla ones.
+     * Printed in the prefetch line ONLY when non-zero, so a healthy session's line stays byte-identical
+     * to the historical format the acceptance greps assert on.
+     */
+    private static final AtomicLong PREFETCH_PROFILE_SKIPPED = new AtomicLong();
 
     /** One in-flight compilation: the shared SPIR-V snapshot future plus the owning thread (reentrancy guard). */
     private record InflightClaim(CompletableFuture<byte[]> future, Thread owner) {
@@ -971,8 +980,21 @@ public final class ShaderCacheManager {
         //   truncated - never examined because the budget guard or a broken
         //               session stopped the loop; those entries mature lazily
         //               on first request, as before.
+        //   profile-skipped - optimized entries of a session whose optimized
+        //               profile is definitively off (config disabled or the
+        //               guard disarmed): their keys embed the optimized profile
+        //               and can never be hit this session, so the payload is
+        //               not even read. The two sticky states are checked
+        //               instead of isActive() on purpose: isActive() could run
+        //               the one-time shaderc probe on this background thread
+        //               and would move the profile INFO line ahead of the first
+        //               compile (an observable log-contract change). When only
+        //               the probe verdict is negative, the entries are still
+        //               warmed (as before) - they are simply never hit.
         // The half-budget stop also keeps the prefetch out of the 5.3 LRU
         // eviction's way (see kickPrefetch javadoc).
+        boolean serveOptimized = PearlConfig.get().shaderOptimization
+            && !ShaderOptimization.guardDisarmed();
         int loaded = 0;
         long bytes = 0;
         int examined = 0;
@@ -989,6 +1011,13 @@ public final class ShaderCacheManager {
                 continue;
             }
             Path metaFile = spvFile.getParent().resolve(key + ".meta.json");
+            // Profile skip BEFORE any payload IO: a meta-only peek is enough -
+            // an unreadable/mismatching meta just falls through to the ordinary
+            // integrity check (and its invalid counter) below.
+            if (!serveOptimized && metaOptimizedOf(metaFile)) {
+                PREFETCH_PROFILE_SKIPPED.incrementAndGet();
+                continue;
+            }
             DiskEntry entry = loadEntryIfValid(spvFile, metaFile);
             if (entry == null) {
                 PREFETCH_INVALID.incrementAndGet();
@@ -1008,9 +1037,33 @@ public final class ShaderCacheManager {
             bytes += cached.length;
         }
         if (loaded > 0) {
-            PearlOptimizer.LOGGER.info("Shader cache prefetch: {} entries ({} KB) warmed in {} ms, invalid={}, truncated={}",
-                loaded, Math.max(1, bytes / 1024), (System.nanoTime() - t0) / 1_000_000,
-                PREFETCH_INVALID.get(), PREFETCH_TRUNCATED.get());
+            // The historical two-counter line is kept byte-identical for the
+            // healthy case (the acceptance greps assert the exact substring
+            // "invalid=0, truncated=0"); the profile-skip suffix appears only
+            // in sessions where optimized entries were actually skipped.
+            if (PREFETCH_PROFILE_SKIPPED.get() > 0) {
+                PearlOptimizer.LOGGER.info("Shader cache prefetch: {} entries ({} KB) warmed in {} ms, invalid={}, truncated={}, profile-skipped={}",
+                    loaded, Math.max(1, bytes / 1024), (System.nanoTime() - t0) / 1_000_000,
+                    PREFETCH_INVALID.get(), PREFETCH_TRUNCATED.get(), PREFETCH_PROFILE_SKIPPED.get());
+            } else {
+                PearlOptimizer.LOGGER.info("Shader cache prefetch: {} entries ({} KB) warmed in {} ms, invalid={}, truncated={}",
+                    loaded, Math.max(1, bytes / 1024), (System.nanoTime() - t0) / 1_000_000,
+                    PREFETCH_INVALID.get(), PREFETCH_TRUNCATED.get());
+            }
+        }
+    }
+
+    /**
+     * Meta-only peek of the {@code "optimized"} flag for the prefetch profile
+     * skip: {@code true} only when the meta is readable, well-formed and says
+     * {@code optimized=true}. Any problem reads as {@code false} so the entry
+     * falls through to the ordinary integrity check (and its invalid counter).
+     */
+    private static boolean metaOptimizedOf(Path metaFile) {
+        try {
+            return metaOptimized(Files.readString(metaFile, StandardCharsets.UTF_8));
+        } catch (Throwable t) {
+            return false;
         }
     }
 
@@ -1788,6 +1841,11 @@ public final class ShaderCacheManager {
         return PREFETCH_TRUNCATED.get();
     }
 
+    /** Optimized prefetch entries skipped because the optimized profile is definitively off this session (report counter, printed in the prefetch line when non-zero). */
+    public static long prefetchProfileSkipped() {
+        return PREFETCH_PROFILE_SKIPPED.get();
+    }
+
     /** Store latch state: true once disk writes are disabled for the session. Report surface for Diagnostics, never printed here. */
     static boolean storeLatchEngaged() {
         return STORE_DISABLED.get();
@@ -1843,6 +1901,7 @@ public final class ShaderCacheManager {
         PREFETCH_KICKED.set(false);
         PREFETCH_INVALID.set(0);
         PREFETCH_TRUNCATED.set(0);
+        PREFETCH_PROFILE_SKIPPED.set(0);
         STORES_QUEUED.set(0);
         STORES_WRITTEN.set(0);
         STORES_FAILED.set(0);
